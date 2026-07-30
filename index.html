@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Blu Messages</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        ::-webkit-scrollbar { width: 5px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+    </style>
+</head>
+<body class="bg-white text-slate-900 h-screen flex flex-col font-sans select-none">
+
+    <!-- Auth Screen -->
+    <div id="auth-screen" class="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-50 flex items-center justify-center p-4">
+        <div class="bg-white border border-slate-200 p-8 rounded-3xl w-full max-w-sm shadow-2xl text-center">
+            <div class="w-16 h-16 bg-blue-500 rounded-2xl mx-auto flex items-center justify-center text-white text-3xl font-bold shadow-lg shadow-blue-500/30 mb-4">
+                💬
+            </div>
+            <h1 class="text-2xl font-bold text-slate-900 mb-1">BluOM ID</h1>
+            <p class="text-slate-500 mb-6 text-xs">Sign in or register with your ID and password.</p>
+            <form id="auth-form" class="space-y-3">
+                <input type="text" id="blu-id-input" required autocomplete="off" placeholder="BluOM ID (e.g. alex)" 
+                    class="w-full bg-slate-100 border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-blue-500 text-center font-medium">
+                <input type="password" id="password-input" required placeholder="Password" 
+                    class="w-full bg-slate-100 border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-blue-500 text-center font-medium">
+                <button type="submit" class="w-full bg-blue-500 hover:bg-blue-600 transition text-white font-semibold py-3 rounded-xl text-sm shadow-md shadow-blue-500/20">
+                    Sign In / Register
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Main Layout -->
+    <div class="flex-1 flex overflow-hidden">
+        <!-- Sidebar -->
+        <div class="w-80 bg-slate-50 border-r border-slate-200 flex flex-col">
+            <div class="p-4 border-b border-slate-200 flex items-center justify-between">
+                <div>
+                    <h2 id="current-user-display" class="font-bold text-slate-900 text-lg">--</h2>
+                    <span class="text-[11px] text-emerald-600 font-medium">● SQL Database Connected</span>
+                </div>
+                <button onclick="localStorage.clear(); location.reload();" class="text-xs text-slate-400 hover:text-red-500 font-medium">Sign Out</button>
+            </div>
+
+            <div class="p-3 border-b border-slate-200 space-y-2 bg-slate-100/50">
+                <form id="add-contact-form" class="flex gap-2">
+                    <input type="text" id="contact-input" autocomplete="off" placeholder="New Direct ID..." 
+                        class="flex-1 bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:border-blue-500">
+                    <button type="submit" class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1.5 rounded-lg text-xs font-semibold">Chat</button>
+                </form>
+                <form id="create-group-form" class="flex gap-2">
+                    <input type="text" id="group-input" autocomplete="off" placeholder="New Group Name..." 
+                        class="flex-1 bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:border-blue-500">
+                    <button type="submit" class="bg-slate-800 hover:bg-slate-900 text-white px-3 py-1.5 rounded-lg text-xs font-semibold">Group</button>
+                </form>
+            </div>
+
+            <div id="chats-list" class="flex-1 overflow-y-auto p-2 space-y-1"></div>
+        </div>
+
+        <!-- Chat Workspace -->
+        <div class="flex-1 flex flex-col bg-white">
+            <div id="active-chat-header" class="h-14 border-b border-slate-200 px-6 flex items-center font-semibold text-slate-800 shadow-sm bg-white/80 backdrop-blur">
+                Select a conversation
+            </div>
+
+            <div id="chat-messages" class="flex-1 overflow-y-auto p-6 space-y-3 bg-gradient-to-b from-slate-50/50 to-white">
+                <div class="text-center text-slate-400 my-auto text-xs">No chat selected</div>
+            </div>
+
+            <form id="message-form" class="p-3 bg-white border-t border-slate-200 flex gap-2 items-center hidden">
+                <input type="text" id="message-input" autocomplete="off" placeholder="iMessage" 
+                    class="flex-1 bg-slate-100 border border-slate-200 rounded-full px-4 py-2.5 text-sm focus:outline-none focus:border-blue-500">
+                <button type="submit" class="bg-blue-500 hover:bg-blue-600 w-9 h-9 rounded-full flex items-center justify-center text-white transition shadow-sm">
+                    ↑
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        let currentUser = localStorage.getItem('blu_current_user');
+        let activeTarget = null;
+        let isGroupChat = false;
+        let chats = JSON.parse(localStorage.getItem('blu_chats') || '[]');
+
+        const authScreen = document.getElementById('auth-screen');
+        const authForm = document.getElementById('auth-form');
+        const bluIdInput = document.getElementById('blu-id-input');
+        const passwordInput = document.getElementById('password-input');
+        const currentUserDisplay = document.getElementById('current-user-display');
+        const chatsList = document.getElementById('chats-list');
+        const addContactForm = document.getElementById('add-contact-form');
+        const contactInput = document.getElementById('contact-input');
+        const createGroupForm = document.getElementById('create-group-form');
+        const groupInput = document.getElementById('group-input');
+        const activeChatHeader = document.getElementById('active-chat-header');
+        const chatMessages = document.getElementById('chat-messages');
+        const messageForm = document.getElementById('message-form');
+        const messageInput = document.getElementById('message-input');
+
+        window.addEventListener('DOMContentLoaded', () => {
+            if (currentUser) {
+                authScreen.classList.add('hidden');
+                currentUserDisplay.textContent = currentUser;
+                renderChats();
+                setInterval(pollMessages, 2500);
+            }
+        });
+
+        authForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const id = bluIdInput.value.trim().toLowerCase();
+            const password = passwordInput.value;
+            if (!id || !password) return;
+
+            try {
+                const res = await fetch('api/auth.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ bluId: id, password: password })
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    currentUser = id;
+                    localStorage.setItem('blu_current_user', currentUser);
+                    authScreen.classList.add('hidden');
+                    currentUserDisplay.textContent = currentUser;
+                    renderChats();
+                    setInterval(pollMessages, 2500);
+                } else {
+                    alert(data.error || 'Authentication failed');
+                }
+            } catch (err) {
+                alert('Connection error during authentication.');
+            }
+        });
+
+        addContactForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const target = contactInput.value.trim().toLowerCase();
+            if (!target || target === currentUser) return;
+            if (!chats.some(c => c.name === target && !c.isGroup)) {
+                chats.push({ name: target, isGroup: false });
+                localStorage.setItem('blu_chats', JSON.stringify(chats));
+            }
+            contactInput.value = '';
+            renderChats();
+        });
+
+        createGroupForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const gName = groupInput.value.trim().toLowerCase();
+            if (!gName) return;
+
+            await fetch('api/chat.php?action=creategroup', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ group: gName, creator: currentUser })
+            });
+
+            if (!chats.some(c => c.name === gName && c.isGroup)) {
+                chats.push({ name: gName, isGroup: true });
+                localStorage.setItem('blu_chats', JSON.stringify(chats));
+            }
+            groupInput.value = '';
+            renderChats();
+        });
+
+        function renderChats() {
+            chatsList.innerHTML = '';
+            chats.forEach(chat => {
+                const btn = document.createElement('button');
+                const isActive = activeTarget === chat.name && isGroupChat === chat.isGroup;
+                btn.className = `w-full text-left px-3 py-2.5 rounded-xl transition text-xs font-medium flex items-center justify-between ${isActive ? 'bg-blue-500 text-white shadow-sm' : 'hover:bg-slate-200/60 text-slate-700'}`;
+                btn.innerHTML = `<span>${chat.isGroup ? '👥 ' : '👤 '} ${chat.name}</span><span class="text-[10px] opacity-60">${chat.isGroup ? 'Group' : 'Direct'}</span>`;
+                btn.onclick = () => {
+                    activeTarget = chat.name;
+                    isGroupChat = chat.isGroup;
+                    activeChatHeader.textContent = (isGroupChat ? 'Group: ' : '') + chat.name;
+                    messageForm.classList.remove('hidden');
+                    renderChats();
+                    pollMessages();
+                };
+                chatsList.appendChild(btn);
+            });
+        }
+
+        async function pollMessages() {
+            if (!activeTarget || !currentUser) return;
+            try {
+                const endpoint = isGroupChat 
+                    ? `api/chat.php?action=fetchgroup&group=${encodeURIComponent(activeTarget)}`
+                    : `api/chat.php?action=fetchdirect&user=${encodeURIComponent(currentUser)}&target=${encodeURIComponent(activeTarget)}`;
+                
+                const res = await fetch(endpoint);
+                const messages = await res.json();
+                renderMessages(messages);
+            } catch (err) {
+                console.error("Polling error:", err);
+            }
+        }
+
+        function renderMessages(messages = []) {
+            chatMessages.innerHTML = '';
+            if (messages.length === 0) {
+                chatMessages.innerHTML = `<div class="text-center text-slate-400 my-auto text-xs">No messages yet.</div>`;
+                return;
+            }
+
+            messages.forEach(msg => {
+                const isMe = msg.sender === currentUser;
+                const div = document.createElement('div');
+                div.className = `flex flex-col ${isMe ? 'items-end' : 'items-start'} mb-1`;
+                let senderTag = (isGroupChat && !isMe) ? `<span class="text-[10px] text-slate-400 ml-3 mb-0.5">${msg.sender}</span>` : '';
+
+                div.innerHTML = `
+                    ${senderTag}
+                    <div class="max-w-xs md:max-w-md px-4 py-2 rounded-2xl text-sm leading-relaxed ${isMe ? 'bg-blue-500 text-white rounded-br-xs' : 'bg-slate-200 text-slate-900 rounded-bl-xs'}">
+                        ${escapeHtml(msg.text)}
+                    </div>
+                `;
+                chatMessages.appendChild(div);
+            });
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        messageForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const text = messageInput.value.trim();
+            if (!text || !activeTarget) return;
+
+            const payload = {
+                sender: currentUser,
+                target: activeTarget,
+                text: text,
+                isGroup: isGroupChat,
+                timestamp: Date.now()
+            };
+
+            messageInput.value = '';
+
+            await fetch('api/chat.php?action=send', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            pollMessages();
+        });
+
+        function escapeHtml(str) {
+            return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        }
+    </script>
+</body>
+</html>
