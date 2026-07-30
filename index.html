@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Blu Chat - PHP Backend</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-950 text-slate-100 h-screen flex flex-col overflow-hidden">
+
+    <!-- Auth Screen -->
+    <div id="auth-screen" class="fixed inset-0 bg-slate-950 z-50 flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-800 p-8 rounded-2xl w-full max-w-md shadow-2xl">
+            <h1 class="text-3xl font-extrabold text-blue-500 mb-2">Blu Chat</h1>
+            <p class="text-slate-400 mb-6 text-sm">Enter your Blu ID to link with the PHP backend server.</p>
+            <form id="auth-form" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Blu ID</label>
+                    <input type="text" id="blu-id-input" required autocomplete="off" placeholder="e.g. user_alpha" 
+                        class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 focus:outline-none focus:border-blue-500 text-slate-200">
+                </div>
+                <button type="submit" class="w-full bg-blue-600 hover:bg-blue-500 transition font-semibold py-3 rounded-xl shadow-lg shadow-blue-600/20">
+                    Connect Node
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Main Chat Dashboard -->
+    <div class="flex-1 flex overflow-hidden">
+        <!-- Sidebar -->
+        <div class="w-80 bg-slate-900 border-r border-slate-800 flex flex-col">
+            <div class="p-4 border-b border-slate-800">
+                <h2 id="current-user-display" class="font-bold text-blue-400 text-lg">--</h2>
+                <span class="text-xs text-emerald-500 flex items-center gap-1 mt-1">
+                    <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> PHP Server Active
+                </span>
+            </div>
+
+            <!-- Add Contact Form -->
+            <div class="p-4 border-b border-slate-800">
+                <form id="add-contact-form" class="flex gap-2">
+                    <input type="text" id="contact-blu-id" autocomplete="off" placeholder="Target Blu ID..." 
+                        class="flex-1 bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500">
+                    <button type="submit" class="bg-slate-800 hover:bg-slate-700 border border-slate-700 px-3 py-2 rounded-lg text-sm font-medium transition">
+                        Add
+                    </button>
+                </form>
+            </div>
+
+            <div id="contact-list" class="flex-1 overflow-y-auto p-2 space-y-1"></div>
+        </div>
+
+        <!-- Chat Area -->
+        <div class="flex-1 flex flex-col bg-slate-950">
+            <div id="active-chat-header" class="bg-slate-900/50 border-b border-slate-800 px-6 py-4 font-semibold text-slate-300">
+                Select a contact to view chat
+            </div>
+
+            <div id="chat-messages" class="flex-1 overflow-y-auto p-6 space-y-4">
+                <div class="text-center text-slate-600 my-auto text-sm">Select a contact from the sidebar.</div>
+            </div>
+
+            <form id="message-form" class="p-4 bg-slate-900 border-t border-slate-800 flex gap-3 hidden">
+                <input type="text" id="message-input" autocomplete="off" placeholder="Type a message..." 
+                    class="flex-1 bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 focus:outline-none focus:border-blue-500 text-sm">
+                <button type="submit" class="bg-blue-600 hover:bg-blue-500 px-6 py-3 rounded-xl font-semibold text-sm transition">
+                    Send
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Frontend Controller Logic -->
+    <script>
+        let currentUser = localStorage.getItem('blu_current_user');
+        let activeTarget = null;
+        let contacts = JSON.parse(localStorage.getItem('blu_contacts') || '[]');
+
+        const authScreen = document.getElementById('auth-screen');
+        const authForm = document.getElementById('auth-form');
+        const bluIdInput = document.getElementById('blu-id-input');
+        const currentUserDisplay = document.getElementById('current-user-display');
+        const contactList = document.getElementById('contact-list');
+        const addContactForm = document.getElementById('add-contact-form');
+        const contactBluIdInput = document.getElementById('contact-blu-id');
+        const activeChatHeader = document.getElementById('active-chat-header');
+        const chatMessages = document.getElementById('chat-messages');
+        const messageForm = document.getElementById('message-form');
+        const messageInput = document.getElementById('message-input');
+
+        window.addEventListener('DOMContentLoaded', () => {
+            if (currentUser) {
+                authScreen.classList.add('hidden');
+                currentUserDisplay.textContent = currentUser;
+                renderContacts();
+                setInterval(pollMessages, 3000); // Auto-poll backend every 3 seconds
+            }
+        });
+
+        authForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const id = bluIdInput.value.trim().toLowerCase();
+            if (!id) return;
+            currentUser = id;
+            localStorage.setItem('blu_current_user', currentUser);
+            authScreen.classList.add('hidden');
+            currentUserDisplay.textContent = currentUser;
+            renderContacts();
+            setInterval(pollMessages, 3000);
+        });
+
+        addContactForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const targetId = contactBluIdInput.value.trim().toLowerCase();
+            if (!targetId || targetId === currentUser) return;
+            if (!contacts.includes(targetId)) {
+                contacts.push(targetId);
+                localStorage.setItem('blu_contacts', JSON.stringify(contacts));
+            }
+            contactBluIdInput.value = '';
+            renderContacts();
+        });
+
+        function renderContacts() {
+            contactList.innerHTML = '';
+            contacts.forEach(id => {
+                const btn = document.createElement('button');
+                btn.className = `w-full text-left px-3 py-2.5 rounded-xl transition text-sm flex items-center justify-between ${activeTarget === id ? 'bg-blue-600/20 text-blue-400 font-semibold border border-blue-500/30' : 'hover:bg-slate-800 text-slate-300'}`;
+                btn.innerHTML = `<span>${id}</span> <span class="w-2 h-2 rounded-full bg-emerald-500"></span>`;
+                btn.onclick = () => {
+                    activeTarget = id;
+                    activeChatHeader.textContent = `Chatting with: ${id}`;
+                    messageForm.classList.remove('hidden');
+                    renderContacts();
+                    pollMessages();
+                };
+                contactList.appendChild(btn);
+            });
+        }
+
+        async function pollMessages() {
+            if (!activeTarget || !currentUser) return;
+            try {
+                const res = await fetch(`api/fetch.php?user=${encodeURIComponent(currentUser)}&target=${encodeURIComponent(activeTarget)}`);
+                const messages = await res.json();
+                renderMessages(messages);
+            } catch (err) {
+                console.error("Polling error:", err);
+            }
+        }
+
+        function renderMessages(messages = []) {
+            chatMessages.innerHTML = '';
+            if (messages.length === 0) {
+                chatMessages.innerHTML = `<div class="text-center text-slate-600 my-auto text-sm">No messages exchanged with ${activeTarget} yet.</div>`;
+                return;
+            }
+            messages.forEach(msg => {
+                const isMe = msg.sender === currentUser;
+                const div = document.createElement('div');
+                div.className = `flex flex-col max-w-md ${isMe ? 'ml-auto items-end' : 'mr-auto items-start'}`;
+                div.innerHTML = `
+                    <div class="px-4 py-2.5 rounded-2xl text-sm ${isMe ? 'bg-blue-600 text-white rounded-br-none' : 'bg-slate-900 border border-slate-800 text-slate-200 rounded-bl-none'}">
+                        ${escapeHtml(msg.text)}
+                    </div>
+                    <span class="text-[10px] text-slate-500 mt-1 px-1">${new Date(msg.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                `;
+                chatMessages.appendChild(div);
+            });
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        messageForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const text = messageInput.value.trim();
+            if (!text || !activeTarget) return;
+
+            const payload = {
+                sender: currentUser,
+                target: activeTarget,
+                text: text,
+                timestamp: Date.now()
+            };
+
+            messageInput.value = '';
+
+            try {
+                await fetch('api/send.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                pollMessages();
+            } catch (err) {
+                console.error("Send error:", err);
+            }
+        });
+
+        function escapeHtml(str) {
+            return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        }
+    </script>
+</body>
+</html>
