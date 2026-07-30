@@ -24,7 +24,7 @@
                 💬
             </div>
             <h1 class="text-2xl font-bold text-slate-900 mb-1">BLUOM ID</h1>
-            <p class="text-slate-500 mb-6 text-xs">Sign in or register with your ID and password.</p>
+            <p class="text-slate-500 mb-6 text-xs">Sign in or register to join the Blu Network.</p>
             <form id="auth-form" class="space-y-3">
                 <input type="text" id="blu-id-input" required autocomplete="off" placeholder="BluOM ID (e.g. test1)" 
                     class="w-full bg-slate-100 border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-blue-500 text-center font-medium">
@@ -44,42 +44,50 @@
             <div class="p-4 border-b border-slate-200 flex items-center justify-between">
                 <div>
                     <h2 id="current-user-display" class="font-bold text-slate-900 text-lg">--</h2>
-                    <span class="text-[11px] text-emerald-600 font-medium">● Connected</span>
+                    <span class="text-[11px] text-emerald-600 font-medium">● SQL Database Active</span>
                 </div>
                 <button onclick="localStorage.clear(); location.reload();" class="text-xs text-slate-400 hover:text-red-500 font-medium">Sign Out</button>
             </div>
 
-            <!-- Group Creator -->
-            <div class="p-3 border-b border-slate-200 bg-slate-100/50">
+            <!-- Quick Add Controls -->
+            <div class="p-3 border-b border-slate-200 space-y-2 bg-slate-100/50">
+                <form id="add-contact-form" class="flex gap-2">
+                    <input type="text" id="contact-input" autocomplete="off" placeholder="Add Direct ID..." 
+                        class="flex-1 bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:border-blue-500">
+                    <button type="submit" class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1.5 rounded-lg text-xs font-semibold">Add</button>
+                </form>
                 <form id="create-group-form" class="flex gap-2">
-                    <input type="text" id="group-input" autocomplete="off" placeholder="New Group Name..." 
+                    <input type="text" id="group-input" autocomplete="off" placeholder="Create Group Name..." 
                         class="flex-1 bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:border-blue-500">
                     <button type="submit" class="bg-slate-800 hover:bg-slate-900 text-white px-3 py-1.5 rounded-lg text-xs font-semibold">Group</button>
                 </form>
             </div>
 
-            <!-- Tab Switcher (Direct Chats vs. Registered Users Directory) -->
+            <!-- Navigation Tabs -->
             <div class="flex border-b border-slate-200 text-xs font-semibold bg-slate-200/40">
                 <button onclick="switchTab('chats')" id="tab-chats-btn" class="flex-1 py-2 text-blue-600 border-b-2 border-blue-500 bg-white">Chats</button>
                 <button onclick="switchTab('directory')" id="tab-dir-btn" class="flex-1 py-2 text-slate-500">Directory</button>
             </div>
 
-            <!-- Content Lists -->
+            <!-- Lists -->
             <div id="chats-list" class="flex-1 overflow-y-auto p-2 space-y-1"></div>
             <div id="directory-list" class="flex-1 overflow-y-auto p-2 space-y-1 hidden"></div>
         </div>
 
         <!-- Chat Workspace -->
         <div class="flex-1 flex flex-col bg-white">
-            <div id="active-chat-header" class="h-14 border-b border-slate-200 px-6 flex items-center font-semibold text-slate-800 shadow-sm bg-white/80 backdrop-blur">
-                Select a conversation
+            <div id="active-chat-header" class="h-14 border-b border-slate-200 px-6 flex items-center justify-between font-semibold text-slate-800 shadow-sm bg-white/80 backdrop-blur">
+                <span>Select a conversation</span>
+                <div id="chat-actions" class="hidden flex items-center gap-2">
+                    <button id="manage-group-btn" onclick="openGroupManager()" class="text-xs bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-lg text-slate-700 hidden">Members</button>
+                    <button onclick="deleteCurrentChat()" class="text-xs bg-red-50 hover:bg-red-100 text-red-600 px-3 py-1.5 rounded-lg">Delete Chat</button>
+                </div>
             </div>
 
             <div id="chat-messages" class="flex-1 overflow-y-auto p-6 space-y-3 bg-gradient-to-b from-slate-50/50 to-white">
-                <div class="text-center text-slate-400 my-auto text-xs">Select a contact from the sidebar to begin messaging.</div>
+                <div class="text-center text-slate-400 my-auto text-xs">Select a contact or group from the sidebar to chat.</div>
             </div>
 
-            <!-- Typing Indicator Bar -->
             <div id="typing-indicator" class="px-6 py-1 text-xs text-slate-400 italic hidden h-6">
                 <span id="typing-user">Someone</span> is typing...
             </div>
@@ -91,6 +99,20 @@
                     ↑
                 </button>
             </form>
+        </div>
+    </div>
+
+    <!-- Group Member Management Modal -->
+    <div id="group-modal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-xs z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-2xl w-full max-w-sm p-6 shadow-2xl border border-slate-200">
+            <h3 id="modal-group-title" class="font-bold text-lg text-slate-800 mb-2">Group Members</h3>
+            <p class="text-xs text-slate-500 mb-4">Add users or view participants in this group chat.</p>
+            <div id="group-members-list" class="space-y-2 max-h-48 overflow-y-auto mb-4 border border-slate-100 p-2 rounded-xl"></div>
+            <div class="flex gap-2">
+                <input type="text" id="add-member-input" placeholder="Add Blu ID..." class="flex-1 bg-slate-100 px-3 py-2 rounded-xl text-xs border border-slate-200 focus:outline-none">
+                <button onclick="addGroupMember()" class="bg-blue-500 text-white px-4 py-2 rounded-xl text-xs font-semibold">Add</button>
+            </div>
+            <button onclick="closeGroupManager()" class="w-full mt-4 bg-slate-100 hover:bg-slate-200 text-slate-700 py-2 rounded-xl text-xs font-medium">Close</button>
         </div>
     </div>
 
@@ -108,9 +130,13 @@
         const currentUserDisplay = document.getElementById('current-user-display');
         const chatsList = document.getElementById('chats-list');
         const directoryList = document.getElementById('directory-list');
+        const addContactForm = document.getElementById('add-contact-form');
+        const contactInput = document.getElementById('contact-input');
         const createGroupForm = document.getElementById('create-group-form');
         const groupInput = document.getElementById('group-input');
         const activeChatHeader = document.getElementById('active-chat-header');
+        const chatActions = document.getElementById('chat-actions');
+        const manageGroupBtn = document.getElementById('manage-group-btn');
         const chatMessages = document.getElementById('chat-messages');
         const messageForm = document.getElementById('message-form');
         const messageInput = document.getElementById('message-input');
@@ -133,27 +159,23 @@
             const password = passwordInput.value;
             if (!id || !password) return;
 
-            try {
-                const res = await fetch('api/auth.php', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ bluId: id, password: password })
-                });
-                const data = await res.json();
+            const res = await fetch('api/auth.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ bluId: id, password: password })
+            });
+            const data = await res.json();
 
-                if (data.success) {
-                    currentUser = id;
-                    localStorage.setItem('blu_current_user', currentUser);
-                    authScreen.classList.add('hidden');
-                    currentUserDisplay.textContent = currentUser;
-                    renderChats();
-                    fetchDirectory();
-                    setInterval(pollMessages, 2500);
-                } else {
-                    alert(data.error || 'Authentication failed');
-                }
-            } catch (err) {
-                alert('Connection error during authentication.');
+            if (data.success) {
+                currentUser = id;
+                localStorage.setItem('blu_current_user', currentUser);
+                authScreen.classList.add('hidden');
+                currentUserDisplay.textContent = currentUser;
+                renderChats();
+                fetchDirectory();
+                setInterval(pollMessages, 2500);
+            } else {
+                alert(data.error || 'Authentication failed');
             }
         });
 
@@ -196,6 +218,18 @@
             } catch (e) { console.error(e); }
         }
 
+        addContactForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const target = contactInput.value.trim().toLowerCase();
+            if (!target || target === currentUser) return;
+            if (!chats.some(c => c.name === target && !c.isGroup)) {
+                chats.push({ name: target, isGroup: false });
+                localStorage.setItem('blu_chats', JSON.stringify(chats));
+            }
+            contactInput.value = '';
+            renderChats();
+        });
+
         createGroupForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             const gName = groupInput.value.trim().toLowerCase();
@@ -204,7 +238,7 @@
             await fetch('api/chat.php?action=creategroup', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ group: gName })
+                body: JSON.stringify({ group: gName, creator: currentUser })
             });
 
             if (!chats.some(c => c.name === gName && c.isGroup)) {
@@ -213,10 +247,15 @@
             }
             groupInput.value = '';
             renderChats();
+            selectChat(gName, true);
         });
 
         function renderChats() {
             chatsList.innerHTML = '';
+            if (chats.length === 0) {
+                chatsList.innerHTML = `<div class="text-center text-slate-400 p-4 text-xs">No active chats. Add a direct contact or group above!</div>`;
+                return;
+            }
             chats.forEach(chat => {
                 const btn = document.createElement('button');
                 const isActive = activeTarget === chat.name && isGroupChat === chat.isGroup;
@@ -230,10 +269,61 @@
         function selectChat(name, group) {
             activeTarget = name;
             isGroupChat = group;
-            activeChatHeader.textContent = (isGroupChat ? 'Group: ' : 'Chat with: ') + name;
+            activeChatHeader.querySelector('span').textContent = (isGroupChat ? 'Group: ' : 'Chat with: ') + name;
             messageForm.classList.remove('hidden');
+            chatActions.classList.remove('hidden');
+            if (isGroupChat) {
+                manageGroupBtn.classList.remove('hidden');
+            } else {
+                manageGroupBtn.classList.add('hidden');
+            }
             renderChats();
             pollMessages();
+        }
+
+        function deleteCurrentChat() {
+            if (!activeTarget) return;
+            chats = chats.filter(c => !(c.name === activeTarget && c.isGroup === isGroupChat));
+            localStorage.setItem('blu_chats', JSON.stringify(chats));
+            activeTarget = null;
+            isGroupChat = false;
+            activeChatHeader.querySelector('span').textContent = 'Select a conversation';
+            chatActions.classList.add('hidden');
+            messageForm.classList.add('hidden');
+            chatMessages.innerHTML = `<div class="text-center text-slate-400 my-auto text-xs">Conversation removed from your sidebar.</div>`;
+            renderChats();
+        }
+
+        async function openGroupManager() {
+            if (!isGroupChat || !activeTarget) return;
+            document.getElementById('modal-group-title').textContent = `Group: ${activeTarget}`;
+            const res = await fetch(`api/chat.php?action=getmembers&group=${encodeURIComponent(activeTarget)}`);
+            const members = await res.json();
+            const listContainer = document.getElementById('group-members-list');
+            listContainer.innerHTML = '';
+            members.forEach(m => {
+                const item = document.createElement('div');
+                item.className = "flex justify-between items-center bg-slate-50 px-3 py-1.5 rounded-lg text-xs";
+                item.innerHTML = `<span>👤 ${m}</span>`;
+                listContainer.appendChild(item);
+            });
+            document.getElementById('group-modal').classList.remove('hidden');
+        }
+
+        function closeGroupManager() {
+            document.getElementById('group-modal').classList.add('hidden');
+        }
+
+        async function addGroupMember() {
+            const newMember = document.getElementById('add-member-input').value.trim().toLowerCase();
+            if (!newMember || !activeTarget) return;
+            await fetch('api/chat.php?action=addmember', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ group: activeTarget, member: newMember })
+            });
+            document.getElementById('add-member-input').value = '';
+            openGroupManager();
         }
 
         async function pollMessages() {
@@ -247,7 +337,6 @@
                 const data = await res.json();
                 renderMessages(data.messages || []);
                 
-                // Handle typing status render
                 if (data.typing && data.typing !== currentUser) {
                     typingUserSpan.textContent = data.typing;
                     typingIndicator.classList.remove('hidden');
@@ -286,20 +375,14 @@
             chatMessages.scrollTop = chatMessages.scrollHeight;
         }
 
-        // Send typing heartbeat to server
         messageInput.addEventListener('input', () => {
             if (!activeTarget) return;
             clearTimeout(typingTimeout);
-            
             fetch('api/chat.php?action=typing', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ sender: currentUser, target: activeTarget, isGroup: isGroupChat })
             });
-
-            typingTimeout = setTimeout(() => {
-                // Clear typing after pause
-            }, 3000);
         });
 
         messageForm.addEventListener('submit', async (e) => {
