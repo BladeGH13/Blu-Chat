@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Blu Messages</title>
+    <title>Blu Chat</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         ::-webkit-scrollbar { width: 5px; }
@@ -22,7 +22,7 @@
             <h1 class="text-2xl font-bold text-slate-900 mb-1">BluOM ID</h1>
             <p class="text-slate-500 mb-6 text-xs">Sign in or register with your ID and password.</p>
             <form id="auth-form" class="space-y-3">
-                <input type="text" id="blu-id-input" required autocomplete="off" placeholder="BluOM ID (e.g. alex)" 
+                <input type="text" id="blu-id-input" required autocomplete="off" placeholder="BluOM ID (e.g. test1)" 
                     class="w-full bg-slate-100 border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-blue-500 text-center font-medium">
                 <input type="password" id="password-input" required placeholder="Password" 
                     class="w-full bg-slate-100 border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-blue-500 text-center font-medium">
@@ -47,7 +47,7 @@
 
             <div class="p-3 border-b border-slate-200 space-y-2 bg-slate-100/50">
                 <form id="add-contact-form" class="flex gap-2">
-                    <input type="text" id="contact-input" autocomplete="off" placeholder="New Direct ID..." 
+                    <input type="text" id="contact-input" autocomplete="off" placeholder="Add Direct ID (e.g. test1)..." 
                         class="flex-1 bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:border-blue-500">
                     <button type="submit" class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1.5 rounded-lg text-xs font-semibold">Chat</button>
                 </form>
@@ -68,11 +68,11 @@
             </div>
 
             <div id="chat-messages" class="flex-1 overflow-y-auto p-6 space-y-3 bg-gradient-to-b from-slate-50/50 to-white">
-                <div class="text-center text-slate-400 my-auto text-xs">No chat selected</div>
+                <div class="text-center text-slate-400 my-auto text-xs">Select a contact from the sidebar to begin messaging.</div>
             </div>
 
             <form id="message-form" class="p-3 bg-white border-t border-slate-200 flex gap-2 items-center hidden">
-                <input type="text" id="message-input" autocomplete="off" placeholder="iMessage" 
+                <input type="text" id="message-input" autocomplete="off" placeholder="Type a message..." 
                     class="flex-1 bg-slate-100 border border-slate-200 rounded-full px-4 py-2.5 text-sm focus:outline-none focus:border-blue-500">
                 <button type="submit" class="bg-blue-500 hover:bg-blue-600 w-9 h-9 rounded-full flex items-center justify-center text-white transition shadow-sm">
                     ↑
@@ -181,7 +181,7 @@
                 btn.onclick = () => {
                     activeTarget = chat.name;
                     isGroupChat = chat.isGroup;
-                    activeChatHeader.textContent = (isGroupChat ? 'Group: ' : '') + chat.name;
+                    activeChatHeader.textContent = (isGroupChat ? 'Group: ' : 'Chat with: ') + chat.name;
                     messageForm.classList.remove('hidden');
                     renderChats();
                     pollMessages();
@@ -208,7 +208,7 @@
         function renderMessages(messages = []) {
             chatMessages.innerHTML = '';
             if (messages.length === 0) {
-                chatMessages.innerHTML = `<div class="text-center text-slate-400 my-auto text-xs">No messages yet.</div>`;
+                chatMessages.innerHTML = `<div class="text-center text-slate-400 my-auto text-xs">No messages yet. Say hello!</div>`;
                 return;
             }
 
