@@ -1,18 +1,7 @@
 <?php
 header('Content-Type: application/json');
-
-$data = json_decode(file_get_contents('php://input'), true);
-$bluId = preg_replace('/[^a-z0-9_]/', '', strtolower($data['bluId'] ?? ''));
-$password = $data['password'] ?? '';
-
-if (empty($bluId) || empty($password)) {
-    http_response_code(400);
-    exit(json_encode(['error' => 'Blu ID and password are required.']));
-}
-
 $dir = __DIR__ . '/data/';
 if (!is_dir($dir)) mkdir($dir, 0777, true);
-
 $dbPath = $dir . 'users.sql';
 $db = new SQLite3($dbPath);
 
@@ -22,6 +11,26 @@ $db->exec("CREATE TABLE IF NOT EXISTS users (
     password TEXT NOT NULL,
     created_at INTEGER NOT NULL
 )");
+
+// Return directory list if requested
+if (isset($_GET['action']) && $_GET['action'] === 'directory') {
+    $res = $db->query("SELECT blu_id, created_at FROM users ORDER BY blu_id ASC");
+    $users = [];
+    while ($row = $res->fetchArray(SQLITE3_ASSOC)) {
+        $users[] = $row;
+    }
+    echo json_encode($users);
+    exit;
+}
+
+$data = json_decode(file_get_contents('php://input'), true);
+$bluId = preg_replace('/[^a-z0-9_]/', '', strtolower($data['bluId'] ?? ''));
+$password = $data['password'] ?? '';
+
+if (empty($bluId) || empty($password)) {
+    http_response_code(400);
+    exit(json_encode(['error' => 'Blu ID and password are required.']));
+}
 
 $stmt = $db->prepare("SELECT * FROM users WHERE blu_id = :blu_id");
 $stmt->bindValue(':blu_id', $bluId, SQLITE3_TEXT);
