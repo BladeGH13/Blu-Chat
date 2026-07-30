@@ -14,7 +14,12 @@ $db->exec("CREATE TABLE IF NOT EXISTS messages (
     timestamp INTEGER NOT NULL
 )");
 
-// Simple volatile table to manage real-time typing indicators
+$db->exec("CREATE TABLE IF NOT EXISTS group_members (
+    group_name TEXT NOT NULL,
+    member TEXT NOT NULL,
+    PRIMARY KEY(group_name, member)
+)");
+
 $db->exec("CREATE TABLE IF NOT EXISTS typing (
     room TEXT PRIMARY KEY,
     sender TEXT,
@@ -24,7 +29,46 @@ $db->exec("CREATE TABLE IF NOT EXISTS typing (
 $action = $_GET['action'] ?? '';
 
 if ($action === 'creategroup') {
+    $data = json_decode(file_get_contents('php://input'), true);
+    $group = preg_replace('/[^a-z0-9_]/', '', strtolower($data['group'] ?? ''));
+    $creator = preg_replace('/[^a-z0-9_]/', '', strtolower($data['creator'] ?? ''));
+    
+    if (!empty($group)) {
+        $stmt = $db->prepare("INSERT OR IGNORE INTO group_members (group_name, member) VALUES (:g, :m)");
+        $stmt->bindValue(':g', $group, SQLITE3_TEXT);
+        $stmt->bindValue(':m', $creator, SQLITE3_TEXT);
+        $stmt->execute();
+    }
     echo json_encode(['success' => true]);
+    exit;
+}
+
+if ($action === 'addmember') {
+    $data = json_decode(file_get_contents('php://input'), true);
+    $group = preg_replace('/[^a-z0-9_]/', '', strtolower($data['group'] ?? ''));
+    $member = preg_replace('/[^a-z0-9_]/', '', strtolower($data['member'] ?? ''));
+    
+    if (!empty($group) && !empty($member)) {
+        $stmt = $db->prepare("INSERT OR IGNORE INTO group_members (group_name, member) VALUES (:g, :m)");
+        $stmt->bindValue(':g', $group, SQLITE3_TEXT);
+        $stmt->bindValue(':m', $member, SQLITE3_TEXT);
+        $stmt->execute();
+    }
+    echo json_encode(['success' => true]);
+    exit;
+}
+
+if ($action === 'getmembers') {
+    $group = preg_replace('/[^a-z0-9_]/', '', strtolower($_GET['group'] ?? ''));
+    $stmt = $db->prepare("SELECT member FROM group_members WHERE group_name = :g");
+    $stmt->bindValue(':g', $group, SQLITE3_TEXT);
+    $res = $stmt->execute();
+    
+    $members = [];
+    while ($row = $res->fetchArray(SQLITE3_ASSOC)) {
+        $members[] = $row['member'];
+    }
+    echo json_encode($members);
     exit;
 }
 
@@ -90,7 +134,6 @@ if ($action === 'fetchdirect' || $action === 'fetchgroup') {
         $messages[] = $row;
     }
 
-    // Check typing status (valid if updated within last 4 seconds)
     $typingUser = null;
     $tStmt = $db->prepare("SELECT sender, updated_at FROM typing WHERE room = :room");
     $tStmt->bindValue(':room', $targetKey, SQLITE3_TEXT);
