@@ -14,9 +14,35 @@ $db->exec("CREATE TABLE IF NOT EXISTS messages (
     timestamp INTEGER NOT NULL
 )");
 
+// Simple volatile table to manage real-time typing indicators
+$db->exec("CREATE TABLE IF NOT EXISTS typing (
+    room TEXT PRIMARY KEY,
+    sender TEXT,
+    updated_at INTEGER
+)");
+
 $action = $_GET['action'] ?? '';
 
 if ($action === 'creategroup') {
+    echo json_encode(['success' => true]);
+    exit;
+}
+
+if ($action === 'typing') {
+    $data = json_decode(file_get_contents('php://input'), true);
+    $sender = $data['sender'] ?? '';
+    $target = $data['target'] ?? '';
+    $isGroup = $data['isGroup'] ?? false;
+    
+    $room = $isGroup ? $target : (function($u1, $u2) {
+        $p = [$u1, $u2]; sort($p); return 'dm_' . md5($p[0] . '_' . $p[1]);
+    })($sender, $target);
+
+    $stmt = $db->prepare("INSERT OR REPLACE INTO typing (room, sender, updated_at) VALUES (:room, :sender, :time)");
+    $stmt->bindValue(':room', $room, SQLITE3_TEXT);
+    $stmt->bindValue(':sender', $sender, SQLITE3_TEXT);
+    $stmt->bindValue(':time', time(), SQLITE3_INTEGER);
+    $stmt->execute();
     echo json_encode(['success' => true]);
     exit;
 }
@@ -32,9 +58,7 @@ if ($action === 'send') {
     if (empty($sender) || empty($target) || empty($text)) exit(json_encode(['error' => 'Bad request']));
 
     $room = $isGroup ? $target : (function($u1, $u2) {
-        $p = [$u1, $u2];
-        sort($p);
-        return 'dm_' . md5($p[0] . '_' . $p[1]);
+        $p = [$u1, $u2]; sort($p); return 'dm_' . md5($p[0] . '_' . $p[1]);
     })($sender, $target);
 
     $stmt = $db->prepare("INSERT INTO messages (room, sender, text, timestamp) VALUES (:room, :sender, :text, :timestamp)");
@@ -53,8 +77,7 @@ if ($action === 'fetchdirect' || $action === 'fetchgroup') {
     if ($action === 'fetchdirect') {
         $user = $_GET['user'] ?? '';
         $target = $_GET['target'] ?? '';
-        $p = [$user, $target];
-        sort($p);
+        $p = [$user, $target]; sort($p);
         $targetKey = 'dm_' . md5($p[0] . '_' . $p[1]);
     }
 
@@ -66,7 +89,17 @@ if ($action === 'fetchdirect' || $action === 'fetchgroup') {
     while ($row = $res->fetchArray(SQLITE3_ASSOC)) {
         $messages[] = $row;
     }
-    echo json_encode($messages);
+
+    // Check typing status (valid if updated within last 4 seconds)
+    $typingUser = null;
+    $tStmt = $db->prepare("SELECT sender, updated_at FROM typing WHERE room = :room");
+    $tStmt->bindValue(':room', $targetKey, SQLITE3_TEXT);
+    $tRes = $tStmt->execute()->fetchArray(SQLITE3_ASSOC);
+    if ($tRes && (time() - $tRes['updated_at'] < 4)) {
+        $typingUser = $tRes['sender'];
+    }
+
+    echo json_encode(['messages' => $messages, 'typing' => $typingUser]);
     exit;
 }
 ?>
